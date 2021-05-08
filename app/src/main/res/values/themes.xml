@@ -1,0 +1,7 @@
+<resources>
+    <style name="Theme.Ayunda" parent="Theme.AppCompat.DayNight" />
+    <style name="Theme.Ayunda.NoActionBar">
+        <item name="windowActionBar">false</item>
+        <item name="windowNoTitle">true</item>
+    </style>
+</resources>
