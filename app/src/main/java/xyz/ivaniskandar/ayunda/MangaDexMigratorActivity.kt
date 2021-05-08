@@ -3,6 +3,7 @@ package xyz.ivaniskandar.ayunda
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
+import android.util.SparseArray
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.util.isEmpty
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
@@ -48,6 +50,7 @@ import eu.kanade.tachiyomi.data.backup.full.models.Backup
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
@@ -57,8 +60,8 @@ import okio.source
 
 class MangaDexMigratorActivity : AppCompatActivity() {
 
-    private var newMangaIds: List<List<String>>? = null
-    private var newChapterIds: List<List<String>>? = null
+    private var newMangaIds = SparseArray<String>()
+    private var newChapterIds = SparseArray<String>()
 
     private val viewModel by viewModels<MangaDexMigratorViewModel>()
 
@@ -78,6 +81,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                     item {
                         Text(
                             text = stringResource(id = R.string.app_name),
+                            color = MaterialTheme.colors.onBackground,
                             style = MaterialTheme.typography.h5
                         )
                         Spacer(modifier = Modifier.height(12.dp))
@@ -112,31 +116,51 @@ class MangaDexMigratorActivity : AppCompatActivity() {
 
                                     lifecycleScope.launch(Dispatchers.IO) {
                                         status = Status.PREPARING
-                                        if (newMangaIds == null) {
-                                            newMangaIds = csvReader().readAll(resources.openRawResource(R.raw.manga_map))
-                                        }
-                                        if (newChapterIds == null) {
-                                            newChapterIds = csvReader().readAll(resources.openRawResource(R.raw.chapter_map))
-                                        }
 
                                         val backupString = try {
                                             contentResolver.openInputStream(it)?.source()?.gzip()?.buffer()?.use {
                                                 it.readByteArray()
                                             }
                                         } catch (e: Exception) {
+                                            null
+                                        }
+
+                                        if (backupString == null) {
                                             lifecycleScope.launch(Dispatchers.Main) {
                                                 Toast.makeText(
                                                     this@MangaDexMigratorActivity,
-                                                    "git gud",
+                                                    "try again plz",
                                                     Toast.LENGTH_SHORT
                                                 ).show()
                                             }
+                                            status = Status.IDLE
                                             return@launch
                                         }
-                                        if (backupString == null) {
-                                            status = Status.FAILURE
-                                            return@launch
+
+                                        val mangaJob = async {
+                                            if (newMangaIds.isEmpty()) {
+                                                csvReader().open(resources.openRawResource(R.raw.manga_map)) {
+                                                    readAllAsSequence().forEachIndexed { index, list ->
+                                                        if (index > 0) {
+                                                            newMangaIds.put(list[0].toInt(), list[1])
+                                                        }
+                                                    }
+                                                }
+                                            }
                                         }
+                                        val chapterJob = async {
+                                            if (newChapterIds.isEmpty()) {
+                                                csvReader().open(resources.openRawResource(R.raw.chapter_map)) {
+                                                    readAllAsSequence().forEachIndexed { index, list ->
+                                                        if (index > 0) {
+                                                            newChapterIds.put(list[0].toInt(), list[1])
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        mangaJob.await()
+                                        chapterJob.await()
 
                                         val backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupString)
                                         val backupMangaList = backup.backupManga.toMutableList()
@@ -156,7 +180,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                 continue
                                             }
 
-                                            val newMangaId = findNewId(newMangaIds!!, oldMangaId)
+                                            val newMangaId = newMangaIds[oldMangaId.toInt()]
                                             if (newMangaId != null) {
                                                 backupManga.url = "/manga/$newMangaId"
 
@@ -166,7 +190,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                     val backupChapter = chapters[i2].copy()
                                                     if (backupChapter.url.startsWith("/api/")) {
                                                         val oldChapterId = backupChapter.url.split("/")[3]
-                                                        val newChapterId = findNewId(newChapterIds!!, oldChapterId)
+                                                        val newChapterId = newChapterIds[oldChapterId.toInt()]
                                                         if (newChapterId != null) {
                                                             backupChapter.url = "/chapter/$newChapterId"
                                                             chapters[i2] = backupChapter
@@ -203,14 +227,11 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                             text = "IMPORT BACKUP",
                                             icon = Icons.Default.FileUpload,
                                             modifier = Modifier.fillMaxWidth(),
-                                            onClick = { selectBackupFile.launch(arrayOf("application/gzip")) }
+                                            onClick = { selectBackupFile.launch(arrayOf("*/*")) }
                                         )
                                     }
                                     Status.PREPARING, Status.PROCESSING -> {
                                         CircularProgressIndicator()
-                                    }
-                                    Status.FAILURE -> {
-                                        Text(text = "Invalid backup file, try again.")
                                     }
                                 }
 
@@ -317,6 +338,10 @@ class MangaDexMigratorActivity : AppCompatActivity() {
         }
     }
 
+    private fun findNewId(csv: Map<String, String>, oldId: String): String? {
+        return csv[oldId]
+    }
+
     private fun findNewId(csv: List<List<String>>, oldId: String): String? {
         var i = csv.binarySearchBy(oldId, selector = { it[0] })
         if (i < 0) {
@@ -345,7 +370,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
     }
 
     private enum class Status {
-        IDLE, PREPARING, PROCESSING, FAILURE
+        IDLE, PREPARING, PROCESSING
     }
 
     companion object {
