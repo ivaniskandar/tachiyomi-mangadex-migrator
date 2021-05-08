@@ -3,7 +3,6 @@ package xyz.ivaniskandar.ayunda
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
-import android.util.SparseArray
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -42,26 +41,22 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.core.util.isEmpty
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
-import com.github.doyaaaaaken.kotlincsv.dsl.csvReader
+import androidx.room.Room
 import eu.kanade.tachiyomi.data.backup.full.models.Backup
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
 import okio.gzip
 import okio.sink
 import okio.source
+import xyz.ivaniskandar.ayunda.db.MangaDexDatabase
 
 class MangaDexMigratorActivity : AppCompatActivity() {
-
-    private var newMangaIds = SparseArray<String>()
-    private var newChapterIds = SparseArray<String>()
 
     private val viewModel by viewModels<MangaDexMigratorViewModel>()
 
@@ -137,30 +132,11 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                             return@launch
                                         }
 
-                                        val mangaJob = async {
-                                            if (newMangaIds.isEmpty()) {
-                                                csvReader().open(resources.openRawResource(R.raw.manga_map)) {
-                                                    readAllAsSequence().forEachIndexed { index, list ->
-                                                        if (index > 0) {
-                                                            newMangaIds.put(list[0].toInt(), list[1])
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        val chapterJob = async {
-                                            if (newChapterIds.isEmpty()) {
-                                                csvReader().open(resources.openRawResource(R.raw.chapter_map)) {
-                                                    readAllAsSequence().forEachIndexed { index, list ->
-                                                        if (index > 0) {
-                                                            newChapterIds.put(list[0].toInt(), list[1])
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        mangaJob.await()
-                                        chapterJob.await()
+                                        val db = Room.databaseBuilder(
+                                            this@MangaDexMigratorActivity,
+                                            MangaDexDatabase::class.java,
+                                            "mangadex.db"
+                                        ).createFromAsset("mangadex.db").build()
 
                                         val backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupString)
                                         val backupMangaList = backup.backupManga.toMutableList()
@@ -168,6 +144,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
 
                                         status = Status.PROCESSING
 
+                                        val mangaDexDao = db.mangaDexDao()
                                         for (i in backupMangaList.indices) {
                                             val backupManga = backupMangaList[i].copy()
                                             if (backupManga.source != MANGADEX_SOURCE_ID) continue
@@ -180,7 +157,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                 continue
                                             }
 
-                                            val newMangaId = newMangaIds[oldMangaId.toInt()]
+                                            val newMangaId = mangaDexDao.getNewMangaId(oldMangaId)
                                             if (newMangaId != null) {
                                                 backupManga.url = "/manga/$newMangaId"
 
@@ -190,7 +167,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                     val backupChapter = chapters[i2].copy()
                                                     if (backupChapter.url.startsWith("/api/")) {
                                                         val oldChapterId = backupChapter.url.split("/")[3]
-                                                        val newChapterId = newChapterIds[oldChapterId.toInt()]
+                                                        val newChapterId = mangaDexDao.getNewChapterId(oldChapterId)
                                                         if (newChapterId != null) {
                                                             backupChapter.url = "/chapter/$newChapterId"
                                                             chapters[i2] = backupChapter
@@ -336,18 +313,6 @@ class MangaDexMigratorActivity : AppCompatActivity() {
             Icon(imageVector = icon, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
             Text(text = text)
         }
-    }
-
-    private fun findNewId(csv: Map<String, String>, oldId: String): String? {
-        return csv[oldId]
-    }
-
-    private fun findNewId(csv: List<List<String>>, oldId: String): String? {
-        var i = csv.binarySearchBy(oldId, selector = { it[0] })
-        if (i < 0) {
-            i = csv.indexOfFirst { it[0] == oldId }
-        }
-        return if (i >= 0) csv[i][1] else null
     }
 
     private fun Uri.getDisplayName(): String? {
