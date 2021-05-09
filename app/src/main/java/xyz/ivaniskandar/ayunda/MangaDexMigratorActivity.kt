@@ -10,9 +10,13 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,18 +27,22 @@ import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
+import androidx.compose.material.Divider
 import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentAlpha
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ExpandLess
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.FileDownload
 import androidx.compose.material.icons.filled.FileUpload
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -236,24 +244,21 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                     )
 
                                     if (viewModel.alreadyMigrated.size > 0) {
-                                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                                            Text(text = "Already migrated items:", style = MaterialTheme.typography.subtitle2)
+                                        ExpandableListColumn(title = "Already migrated") {
                                             viewModel.alreadyMigrated.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
                                             }
                                         }
                                     }
                                     if (viewModel.missingMangaId.size > 0) {
-                                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                                            Text(text = "Missing new manga UUID:", style = MaterialTheme.typography.subtitle2)
+                                        ExpandableListColumn(title = "Missing new manga ID") {
                                             viewModel.missingMangaId.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
                                             }
                                         }
                                     }
                                     if (viewModel.missingChapterId.size > 0) {
-                                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
-                                            Text(text = "Missing new chapter UUID:", style = MaterialTheme.typography.subtitle2)
+                                        ExpandableListColumn(title = "Missing new chapter ID") {
                                             viewModel.missingChapterId.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
                                             }
@@ -265,7 +270,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         icon = Icons.Default.FileDownload,
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(top = 8.dp),
+                                            .padding(top = 24.dp),
                                         onClick = {
                                             var fileName = viewModel.originalName
                                             if (fileName != null) {
@@ -285,6 +290,42 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                     }
                 }
             }
+        }
+    }
+
+    @Composable
+    fun ExpandableListColumn(title: String, content: @Composable ColumnScope.() -> Unit) {
+        var expanded by remember { mutableStateOf(false) }
+        Column {
+            if (expanded) Divider()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { expanded = !expanded },
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = title,
+                    modifier = Modifier.weight(1f),
+                    style = MaterialTheme.typography.subtitle2
+                )
+                Icon(
+                    imageVector = if (expanded) {
+                        Icons.Default.ExpandLess
+                    } else {
+                        Icons.Default.ExpandMore
+                    },
+                    contentDescription = null,
+                    modifier = Modifier.padding(vertical = 12.dp)
+                )
+            }
+            AnimatedVisibility(visible = expanded) {
+                Column(
+                    modifier = Modifier.padding(bottom = 12.dp),
+                    content = content
+                )
+            }
+            if (expanded) Divider()
         }
     }
 

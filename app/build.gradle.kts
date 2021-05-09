@@ -71,6 +71,7 @@ tasks {
     withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
         kotlinOptions.freeCompilerArgs += listOf(
             "-Xuse-experimental=kotlinx.serialization.ExperimentalSerializationApi",
+            "-Xopt-in=androidx.compose.animation.ExperimentalAnimationApi"
         )
     }
 }
