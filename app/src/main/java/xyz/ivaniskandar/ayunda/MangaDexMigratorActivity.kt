@@ -122,6 +122,8 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                             Toast.LENGTH_SHORT
                                                         ).show()
                                                     }
+                                                    viewModel.status = Status.IDLE
+                                                    e.printStackTrace()
                                                 }
                                             }
                                         }
@@ -397,12 +399,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             }
         } catch (e: Exception) {
             null
-        }
-
-        if (backupString == null) {
-            status = Status.IDLE
-            throw IllegalStateException("try again plz")
-        }
+        } ?: throw IllegalStateException("try again plz")
 
         val backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupString)
         val backupMangaList = backup.backupManga.toMutableList()
@@ -423,29 +420,27 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
                 continue
             }
 
+            // Migrate manga url
             val newMangaId = dao.getNewMangaId(oldMangaId)
             if (newMangaId == null) {
                 // new manga id doesn't exist so does the chapters
                 missingMangaId += currentManga
                 continue
             }
-
             backupManga.url = "/manga/$newMangaId"
 
+            // Migrate chapter url
             var chapterMissing: String? = null
             val chapters = backupManga.chapters.toMutableList()
             for (i2 in chapters.indices) {
                 val backupChapter = chapters[i2].copy()
-                if (backupChapter.url.startsWith("/api/")) {
-                    val oldChapterId = backupChapter.url.split("/")[3]
-                    val newChapterId = dao.getNewChapterId(oldChapterId)
-                    if (newChapterId != null) {
-                        backupChapter.url = "/chapter/$newChapterId"
-                        chapters[i2] = backupChapter
-                    } else {
-                        chapterMissing = backupChapter.name
-                        break
-                    }
+                val newChapterUrl = migrateChapterUrl(backupChapter.url)
+                if (newChapterUrl != null) {
+                    backupChapter.url = newChapterUrl
+                    chapters[i2] = backupChapter
+                } else {
+                    chapterMissing = backupChapter.name
+                    break
                 }
             }
             if (chapterMissing != null) {
@@ -454,7 +449,19 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
                 continue
             }
 
+            // Migrate history url
+            val history = backupManga.history.toMutableList()
+            for (i2 in history.indices) {
+                val backupHistory = history[i2].copy()
+                val newChapterUrl = migrateChapterUrl(backupHistory.url)
+                if (newChapterUrl != null) {
+                    backupHistory.url = newChapterUrl
+                    history[i2] = backupHistory
+                }
+            }
+
             backupManga.chapters = chapters
+            backupManga.history = history
             backupMangaList[i] = backupManga
             processedItems += 1
         }
@@ -486,14 +493,17 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val chapters = parser
                 .fromJson<List<ChapterImpl>>(mangaJsonObject.get(LegacyBackup.CHAPTERS) ?: JsonArray())
                 .toMutableList()
-            Pair(manga, chapters)
+            val history = parser
+                .fromJson<List<DHistory>>(mangaJsonObject.get(LegacyBackup.HISTORY) ?: JsonArray())
+                .toMutableList()
+            Triple(manga, chapters, history)
         }
         totalDexItems = mangaList.count { mangaDexSourceIds.contains(it.first.source) }
 
         status = Status.PROCESSING
 
         for (i in mangaList.indices) {
-            val (manga, chapters) = mangaList[i]
+            val (manga, chapters, history) = mangaList[i]
             if (!mangaDexSourceIds.contains(manga.source)) continue
 
             currentManga = manga.title
@@ -504,28 +514,26 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
                 continue
             }
 
+            // Migrate manga url
             val newMangaId = dao.getNewMangaId(oldMangaId)
             if (newMangaId == null) {
                 // new manga id doesn't exist so does the chapters
                 missingMangaId += currentManga
                 continue
             }
-
             manga.url = "/manga/$newMangaId"
 
+            // Migrate chapter url
             var chapterMissing: String? = null
             for (i2 in chapters.indices) {
                 val backupChapter = chapters[i2]
-                if (backupChapter.url.startsWith("/api/")) {
-                    val oldChapterId = backupChapter.url.split("/")[3]
-                    val newChapterId = dao.getNewChapterId(oldChapterId)
-                    if (newChapterId != null) {
-                        backupChapter.url = "/chapter/$newChapterId"
-                        chapters[i2] = backupChapter
-                    } else {
-                        chapterMissing = backupChapter.name
-                        break
-                    }
+                val newChapterUrl = migrateChapterUrl(backupChapter.url)
+                if (newChapterUrl != null) {
+                    backupChapter.url = newChapterUrl
+                    chapters[i2] = backupChapter
+                } else {
+                    chapterMissing = backupChapter.name
+                    break
                 }
             }
             if (chapterMissing != null) {
@@ -534,9 +542,19 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
                 continue
             }
 
+            // Migrate history url
+            for (i2 in history.indices) {
+                val backupHistory = history[i2].copy()
+                val newChapterUrl = migrateChapterUrl(backupHistory.url)
+                if (newChapterUrl != null) {
+                    history[i2] = backupHistory.copy(url = newChapterUrl)
+                }
+            }
+
             val mangaJsonObject = mangaArray[i].asJsonObject
             mangaJsonObject[LegacyBackup.MANGA] = parser.toJsonTree(manga)
             mangaJsonObject[LegacyBackup.CHAPTERS] = parser.toJsonTree(chapters)
+            mangaJsonObject[LegacyBackup.HISTORY] = parser.toJsonTree(history)
             mangaArray[i] = mangaJsonObject
             processedItems += 1
         }
@@ -544,6 +562,17 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         root[LegacyBackup.MANGAS] = mangaArray
         convertedBackup = parser.toJson(root)
         status = Status.IDLE
+    }
+
+    private fun migrateChapterUrl(url: String): String? {
+        if (url.startsWith("/api/")) {
+            val oldChapterId = url.split("/")[3]
+            val newChapterId = dao.getNewChapterId(oldChapterId)
+            if (newChapterId != null) {
+                return "/chapter/$newChapterId"
+            }
+        }
+        return null
     }
 
     private fun Uri.getDisplayName(): String? {
