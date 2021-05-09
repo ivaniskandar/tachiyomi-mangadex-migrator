@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.Button
 import androidx.compose.material.Card
@@ -32,6 +33,7 @@ import androidx.compose.material.Icon
 import androidx.compose.material.LocalContentAlpha
 import androidx.compose.material.LocalTextStyle
 import androidx.compose.material.MaterialTheme
+import androidx.compose.material.Surface
 import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExpandLess
@@ -51,6 +53,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.room.Room
@@ -93,6 +97,30 @@ class MangaDexMigratorActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContent {
             AyundaTheme {
+                var exporting by remember { mutableStateOf(false) }
+                if (exporting) {
+                    Dialog(
+                        onDismissRequest = { exporting = false },
+                        properties = DialogProperties(
+                            dismissOnBackPress = false,
+                            dismissOnClickOutside = false
+                        )
+                    ) {
+                        Surface(elevation = 16.dp) {
+                            Row(
+                                modifier = Modifier
+                                    .padding(24.dp)
+                                    .fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                CircularProgressIndicator()
+                                Spacer(modifier = Modifier.width(24.dp))
+                                Text(text = "Exporting backup file")
+                            }
+                        }
+                    }
+                }
+
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
@@ -218,6 +246,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                 val export = rememberLauncherForActivityResult(contract = CreateDocument()) { uri ->
                                     if (uri == null) return@rememberLauncherForActivityResult
                                     lifecycleScope.launch(Dispatchers.IO) {
+                                        exporting = true
                                         val backup = viewModel.convertedBackup
                                         if (backup is FullBackup) {
                                             val byteArray = ProtoBuf.encodeToByteArray(
@@ -232,6 +261,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                 it.write(backup)
                                             }
                                         }
+                                        exporting = false
                                         lifecycleScope.launch(Dispatchers.Main) {
                                             Toast.makeText(
                                                 this@MangaDexMigratorActivity,
