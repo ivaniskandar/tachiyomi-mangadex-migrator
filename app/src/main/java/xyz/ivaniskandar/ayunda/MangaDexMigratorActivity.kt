@@ -315,6 +315,50 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         db.mangaDexDao()
     }
 
+    private val mangaDexSourceIds = arrayOf(
+        2499283573021220255, // en
+        1145824452519314725, // sv
+        1347402746269051958, // my
+        1411768577036936240, // ja
+        1424273154577029558, // he
+        1471784905273036181, // ms
+        1493666528525752601, // zh-Hant
+        1713554459881080228, // th
+        1952071260038453057, // it
+        2098905203823335614, // ru
+        2655149515337070132, // pt-BR
+        3260701926561129943, // el
+        3285208643537017688, // ko
+        3339599426223341161, // ar
+        3578612018159256808, // cs
+        3781216447842245147, // fa
+        3807502156582598786, // id
+        3846770256925560569, // tr
+        4150470519566206911, // bn
+        425785191804166217,  // da
+        4284949320785450865, // hu
+        4505830566611664829, // fr
+        4710920497926776490, // sh
+        4774459486579224459, // ro
+        4872213291993424667, // no
+        4938773340256184018, // es-419
+        5098537545549490547, // de
+        5148895169070562838, // zh-Hans
+        5189216366882819742, // pt
+        5463447640980279236, // bg
+        5779037855201976894, // uk
+        5860541308324630662, // ca
+        5967745367608513818, // mn
+        6400665728063187402, // es
+        6750440049024086587, // nl
+        6840513937945146538, // hi
+        737986167355114438,  // lt
+        8033579885162383068, // pl
+        8254121249433835847, // fi
+        8578871918181236609, // fil
+        9194073792736219759, // vi
+    )
+
     @Throws(IllegalStateException::class, IllegalArgumentException::class)
     fun processBackup(uri: Uri?) {
         if (uri == null) return
@@ -362,13 +406,14 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
 
         val backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupString)
         val backupMangaList = backup.backupManga.toMutableList()
-        totalDexItems = backupMangaList.count { it.source == MANGADEX_SOURCE_ID }
+
+        totalDexItems = backupMangaList.count { mangaDexSourceIds.contains(it.source) }
 
         status = Status.PROCESSING
 
         for (i in backupMangaList.indices) {
             val backupManga = backupMangaList[i].copy()
-            if (backupManga.source != MANGADEX_SOURCE_ID) continue
+            if (!mangaDexSourceIds.contains(backupManga.source)) continue
 
             currentManga = backupManga.title
             val oldMangaId = backupManga.url.split("/")[2]
@@ -443,13 +488,13 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
                 .toMutableList()
             Pair(manga, chapters)
         }
-        totalDexItems = mangaList.count { it.first.source == MANGADEX_SOURCE_ID }
+        totalDexItems = mangaList.count { mangaDexSourceIds.contains(it.first.source) }
 
         status = Status.PROCESSING
 
         for (i in mangaList.indices) {
             val (manga, chapters) = mangaList[i]
-            if (manga.source != MANGADEX_SOURCE_ID) continue
+            if (!mangaDexSourceIds.contains(manga.source)) continue
 
             currentManga = manga.title
             val oldMangaId = manga.url.split("/")[2]
@@ -518,9 +563,5 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         } catch (e: IllegalArgumentException) {
             false
         }
-    }
-
-    companion object {
-        private const val MANGADEX_SOURCE_ID = 2499283573021220255
     }
 }
