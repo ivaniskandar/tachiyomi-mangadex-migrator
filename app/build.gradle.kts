@@ -59,6 +59,8 @@ dependencies {
     val kotlinSerializationVersion = "1.2.0"
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:$kotlinSerializationVersion")
+    implementation("com.google.code.gson:gson:2.8.6")
+    implementation("com.github.salomonbrys.kotson:kotson:2.5.0")
 
     val roomVersion = "2.3.0"
     implementation("androidx.room:room-runtime:$roomVersion")
