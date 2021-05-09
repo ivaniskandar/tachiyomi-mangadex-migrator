@@ -416,7 +416,8 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         val backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupString)
         val backupMangaList = backup.backupManga.toMutableList()
 
-        totalDexItems = backupMangaList.count { mangaDexSourceIds.contains(it.source) }
+        // Unfavorited manga will be silently migrated
+        totalDexItems = backupMangaList.count { it.favorite && mangaDexSourceIds.contains(it.source) }
 
         status = Status.PROCESSING
 
@@ -424,11 +425,11 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val backupManga = backupMangaList[i].copy()
             if (!mangaDexSourceIds.contains(backupManga.source)) continue
 
-            currentManga = backupManga.title
+            if (backupManga.favorite) currentManga = backupManga.title
             val oldMangaId = backupManga.url.split("/")[2]
             if (oldMangaId.isUUID()) {
                 // don't bother if it's already migrated
-                alreadyMigrated += currentManga
+                if (backupManga.favorite) alreadyMigrated += currentManga
                 continue
             }
 
@@ -436,7 +437,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val newMangaId = dao.getNewMangaId(oldMangaId)
             if (newMangaId == null) {
                 // new manga id doesn't exist so does the chapters
-                missingMangaId += currentManga
+                if (backupManga.favorite) missingMangaId += currentManga
                 continue
             }
             backupManga.url = "/manga/$newMangaId"
@@ -457,7 +458,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (chapterMissing != null) {
                 // missing chapter is unlikely to happen but just in case
-                missingChapterId += "$currentManga ($chapterMissing)"
+                if (backupManga.favorite) missingChapterId += "$currentManga ($chapterMissing)"
                 continue
             }
 
@@ -475,7 +476,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             backupManga.chapters = chapters
             backupManga.history = history
             backupMangaList[i] = backupManga
-            processedItems += 1
+            if (backupManga.favorite) processedItems += 1
         }
 
         convertedBackup = backup.copy(backupManga = backupMangaList)
@@ -510,7 +511,9 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
                 .toMutableList()
             Triple(manga, chapters, history)
         }
-        totalDexItems = mangaList.count { mangaDexSourceIds.contains(it.first.source) }
+
+        // Unfavorited manga will be silently migrated
+        totalDexItems = mangaList.count { it.first.favorite && mangaDexSourceIds.contains(it.first.source) }
 
         status = Status.PROCESSING
 
@@ -518,11 +521,11 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val (manga, chapters, history) = mangaList[i]
             if (!mangaDexSourceIds.contains(manga.source)) continue
 
-            currentManga = manga.title
+            if (manga.favorite) currentManga = manga.title
             val oldMangaId = manga.url.split("/")[2]
             if (oldMangaId.isUUID()) {
                 // don't bother if it's already migrated
-                alreadyMigrated += currentManga
+                if (manga.favorite) alreadyMigrated += currentManga
                 continue
             }
 
@@ -530,7 +533,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val newMangaId = dao.getNewMangaId(oldMangaId)
             if (newMangaId == null) {
                 // new manga id doesn't exist so does the chapters
-                missingMangaId += currentManga
+                if (manga.favorite) missingMangaId += currentManga
                 continue
             }
             manga.url = "/manga/$newMangaId"
@@ -550,7 +553,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (chapterMissing != null) {
                 // missing chapter is unlikely to happen but just in case
-                missingChapterId += "$currentManga ($chapterMissing)"
+                if (manga.favorite) missingChapterId += "$currentManga ($chapterMissing)"
                 continue
             }
 
@@ -568,7 +571,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             mangaJsonObject[LegacyBackup.CHAPTERS] = parser.toJsonTree(chapters)
             mangaJsonObject[LegacyBackup.HISTORY] = parser.toJsonTree(history)
             mangaArray[i] = mangaJsonObject
-            processedItems += 1
+            if (manga.favorite) processedItems += 1
         }
 
         root[LegacyBackup.MANGAS] = mangaArray
