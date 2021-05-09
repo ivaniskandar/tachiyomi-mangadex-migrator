@@ -13,8 +13,7 @@ class CreateDocument : ActivityResultContracts.CreateDocument() {
         val intent = super.createIntent(context, input)
         val splitName = input.split(".")
         if (splitName.size >= 2) {
-            intent.type = MimeTypeMap.getSingleton()
-                .getMimeTypeFromExtension(splitName.last())
+            intent.type = MimeTypeMap.getSingleton().getMimeTypeFromExtension(splitName.last()) ?: "*/*"
         }
         return intent
     }
