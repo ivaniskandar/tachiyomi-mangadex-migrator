@@ -265,7 +265,18 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(top = 8.dp),
-                                        onClick = { export.launch(viewModel.originalName) }
+                                        onClick = {
+                                            var fileName = viewModel.originalName
+                                            if (fileName != null) {
+                                                val nameSplit = fileName.split(".")
+                                                if (nameSplit.size >= 2) {
+                                                    val nameWithoutExtension = nameSplit[0]
+                                                    val extension = fileName.replace(nameWithoutExtension, "")
+                                                    fileName = "${nameWithoutExtension}_modified$extension"
+                                                }
+                                            }
+                                            export.launch(fileName)
+                                        }
                                     )
                                 }
                             }
