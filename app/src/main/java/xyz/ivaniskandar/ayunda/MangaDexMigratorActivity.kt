@@ -132,21 +132,21 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         )
                                         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.body2) {
                                             Text(text = "1. Make a backup of your Tachiyomi library")
-                                            Text(text = "2. Delete all MangaDex manga from your library")
-                                            CompositionLocalProvider(
-                                                LocalTextStyle provides MaterialTheme.typography.caption,
-                                                LocalContentAlpha provides ContentAlpha.medium
-                                            ) {
-                                                Text(text = "• You can see all your MangaDex manga in your library by typing \"mangadex\" in the search bar")
-                                                Text(text = "• Do not check \"Downloaded chapters\" if you'd like to keep your downloaded chapters")
-                                            }
-                                            Text(text = "3. Import your backup to start the migration process")
+                                            Text(text = "2. Import your backup to start the migration process")
                                             CompositionLocalProvider(
                                                 LocalTextStyle provides MaterialTheme.typography.caption,
                                                 LocalContentAlpha provides ContentAlpha.medium
                                             ) {
                                                 Text(text = "• Manga from other sources will be kept untouched")
                                                 Text(text = "• Do not minimize this app while the migration process is running")
+                                            }
+                                            Text(text = "3. Delete all MangaDex manga from your library")
+                                            CompositionLocalProvider(
+                                                LocalTextStyle provides MaterialTheme.typography.caption,
+                                                LocalContentAlpha provides ContentAlpha.medium
+                                            ) {
+                                                Text(text = "• You can see all your MangaDex manga in your library by typing \"mangadex\" in the search bar")
+                                                Text(text = "• Do not check \"Downloaded chapters\" if you'd like to keep your downloaded chapters")
                                             }
                                             Text(text = "4. Export the processed backup and restore in Tachiyomi")
                                         }
