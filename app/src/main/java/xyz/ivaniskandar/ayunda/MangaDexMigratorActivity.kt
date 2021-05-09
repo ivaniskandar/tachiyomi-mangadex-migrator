@@ -142,6 +142,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         )
                                         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.body2) {
                                             Text(text = "1. Make a backup of your Tachiyomi library")
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(text = "2. Import your backup to start the migration process")
                                             CompositionLocalProvider(
                                                 LocalTextStyle provides MaterialTheme.typography.caption,
@@ -150,6 +151,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                 Text(text = "• Manga from other sources will be kept untouched")
                                                 Text(text = "• Do not minimize this app while the migration process is running")
                                             }
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(text = "3. Delete all MangaDex manga from your library")
                                             CompositionLocalProvider(
                                                 LocalTextStyle provides MaterialTheme.typography.caption,
@@ -158,6 +160,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                                 Text(text = "• You can see all your MangaDex manga in your library by typing \"mangadex\" in the search bar")
                                                 Text(text = "• Do not check \"Downloaded chapters\" if you'd like to keep your downloaded chapters")
                                             }
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(text = "4. Export the processed backup and restore in Tachiyomi")
                                         }
                                         Spacer(modifier = Modifier.padding(top = 24.dp))
