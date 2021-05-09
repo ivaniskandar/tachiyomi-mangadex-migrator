@@ -4,7 +4,6 @@ import android.app.Application
 import android.net.Uri
 import android.os.Bundle
 import android.provider.OpenableColumns
-import android.webkit.MimeTypeMap
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
@@ -156,14 +155,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                             text = "IMPORT BACKUP",
                                             icon = Icons.Default.FileUpload,
                                             modifier = Modifier.fillMaxWidth(),
-                                            onClick = {
-                                                val mimeTypeMap = MimeTypeMap.getSingleton()
-                                                val mimeTypes = arrayOf(
-                                                    mimeTypeMap.getMimeTypeFromExtension("gz"),
-                                                    mimeTypeMap.getMimeTypeFromExtension("json")
-                                                )
-                                                selectBackup.launch(mimeTypes)
-                                            }
+                                            onClick = { selectBackup.launch(arrayOf("*/*")) }
                                         )
                                     }
                                 }
