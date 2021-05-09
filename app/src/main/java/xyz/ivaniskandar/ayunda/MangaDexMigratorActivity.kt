@@ -128,9 +128,9 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                             }
                                         }
                                         Text(
-                                            text = "How to migrate your MangaDex manga:",
-                                            modifier = Modifier.padding(bottom = 4.dp),
-                                            style = MaterialTheme.typography.subtitle2
+                                            text = "To migrate your MangaDex manga:",
+                                            modifier = Modifier.padding(bottom = 8.dp),
+                                            style = MaterialTheme.typography.subtitle1
                                         )
                                         CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.body2) {
                                             Text(text = "1. Make a backup of your Tachiyomi library")
@@ -152,7 +152,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                             }
                                             Text(text = "4. Export the processed backup and restore in Tachiyomi")
                                         }
-                                        Spacer(modifier = Modifier.padding(top = 16.dp))
+                                        Spacer(modifier = Modifier.padding(top = 24.dp))
                                         ButtonWithIcon(
                                             text = "IMPORT BACKUP",
                                             icon = Icons.Default.FileUpload,
@@ -224,18 +224,19 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .padding(16.dp),
-                                    verticalArrangement = Arrangement.Center,
-                                    horizontalAlignment = Alignment.CenterHorizontally
+                                    verticalArrangement = Arrangement.Center
                                 ) {
                                     Text(
                                         text = "Migrated ${viewModel.processedItems} of ${viewModel.totalDexItems} MangaDex manga",
-                                        modifier = Modifier.padding(bottom = 4.dp),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(bottom = 16.dp),
                                         textAlign = TextAlign.Center,
                                         style = MaterialTheme.typography.subtitle1
                                     )
 
                                     if (viewModel.alreadyMigrated.size > 0) {
-                                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
                                             Text(text = "Already migrated items:", style = MaterialTheme.typography.subtitle2)
                                             viewModel.alreadyMigrated.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
@@ -243,7 +244,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         }
                                     }
                                     if (viewModel.missingMangaId.size > 0) {
-                                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
                                             Text(text = "Missing new manga UUID:", style = MaterialTheme.typography.subtitle2)
                                             viewModel.missingMangaId.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
@@ -251,7 +252,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         }
                                     }
                                     if (viewModel.missingChapterId.size > 0) {
-                                        Column(modifier = Modifier.padding(vertical = 8.dp)) {
+                                        Column(modifier = Modifier.padding(bottom = 16.dp)) {
                                             Text(text = "Missing new chapter UUID:", style = MaterialTheme.typography.subtitle2)
                                             viewModel.missingChapterId.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
