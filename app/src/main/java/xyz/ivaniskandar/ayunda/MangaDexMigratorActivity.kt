@@ -169,27 +169,38 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         )
                                     }
                                 }
-                                Status.PREPARING, Status.PROCESSING -> {
+                                Status.PREPARING, Status.PROCESSING, Status.FINISHING -> {
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 4.dp),
+                                            .padding(start = 16.dp, top = 16.dp, end = 16.dp, bottom = 12.dp),
                                         verticalArrangement = Arrangement.Center,
                                         horizontalAlignment = Alignment.CenterHorizontally
                                     ) {
                                         CircularProgressIndicator()
                                         Spacer(modifier = Modifier.height(8.dp))
-                                        if (viewModel.status == Status.PREPARING) {
-                                            Text(text = "Preparing data", style = MaterialTheme.typography.subtitle1)
-                                            Spacer(modifier = Modifier.height(8.dp))
-                                        } else if (viewModel.status == Status.PROCESSING) {
-                                            Text(text = "${viewModel.processedItems} of ${viewModel.totalDexItems}")
-                                            Text(
-                                                text = viewModel.currentManga,
-                                                overflow = TextOverflow.Ellipsis,
-                                                maxLines = 1
-                                            )
-                                            Spacer(modifier = Modifier.height(8.dp))
+                                        when (viewModel.status) {
+                                            Status.PREPARING -> {
+                                                Text(
+                                                    text = "Preparing data",
+                                                    style = MaterialTheme.typography.subtitle1
+                                                )
+                                            }
+                                            Status.FINISHING -> {
+                                                Text(
+                                                    text = "Finishing migration",
+                                                    style = MaterialTheme.typography.subtitle1
+                                                )
+                                            }
+                                            Status.PROCESSING -> {
+                                                Text(text = "${viewModel.processedCount} of ${viewModel.totalDexItems}")
+                                                Text(
+                                                    text = viewModel.currentManga,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                    maxLines = 1
+                                                )
+                                            }
+                                            else -> {}
                                         }
                                     }
                                 }
@@ -235,7 +246,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                     verticalArrangement = Arrangement.Center
                                 ) {
                                     Text(
-                                        text = "Migrated ${viewModel.processedItems} of ${viewModel.totalDexItems} MangaDex manga",
+                                        text = "Migrated ${viewModel.migratedCount} of ${viewModel.totalDexItems} MangaDex manga",
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(bottom = 16.dp),
@@ -251,7 +262,7 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         }
                                     }
                                     if (viewModel.missingMangaId.size > 0) {
-                                        ExpandableListColumn(title = "Missing new manga ID") {
+                                        ExpandableListColumn(title = "Missing new manga UUID") {
                                             viewModel.missingMangaId.forEach {
                                                 Text(text = "• $it", style = MaterialTheme.typography.body2)
                                             }
@@ -345,13 +356,14 @@ class MangaDexMigratorActivity : AppCompatActivity() {
 }
 
 enum class Status {
-    IDLE, PREPARING, PROCESSING
+    IDLE, PREPARING, PROCESSING, FINISHING
 }
 
 class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
     var status by mutableStateOf(Status.IDLE)
     var currentManga by mutableStateOf("")
-    var processedItems by mutableStateOf(0)
+    var processedCount by mutableStateOf(0)
+    var migratedCount by mutableStateOf(0)
     var totalDexItems = 0
 
     val alreadyMigrated = mutableListOf<String>()
@@ -423,7 +435,8 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
 
         currentManga = ""
         convertedBackup = null
-        processedItems = 0
+        processedCount = 0
+        migratedCount = 0
         totalDexItems = 0
         alreadyMigrated.clear()
         missingMangaId.clear()
@@ -470,7 +483,10 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val oldMangaId = backupManga.url.split("/")[2]
             if (oldMangaId.isUUID()) {
                 // don't bother if it's already migrated
-                if (backupManga.favorite) alreadyMigrated += currentManga
+                if (backupManga.favorite) {
+                    alreadyMigrated += currentManga
+                    incrementProcessedCount()
+                }
                 continue
             }
 
@@ -478,7 +494,10 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val newMangaId = dao.getNewMangaId(oldMangaId)
             if (newMangaId == null) {
                 // new manga id doesn't exist so does the chapters
-                if (backupManga.favorite) missingMangaId += currentManga
+                if (backupManga.favorite) {
+                    missingMangaId += currentManga
+                    incrementProcessedCount()
+                }
                 continue
             }
             backupManga.url = "/manga/$newMangaId"
@@ -499,7 +518,10 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (chapterMissing != null) {
                 // missing chapter is unlikely to happen but just in case
-                if (backupManga.favorite) missingChapterId += "$currentManga ($chapterMissing)"
+                if (backupManga.favorite) {
+                    missingChapterId += "$currentManga ($chapterMissing)"
+                    incrementProcessedCount()
+                }
                 continue
             }
 
@@ -517,9 +539,13 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             backupManga.chapters = chapters
             backupManga.history = history
             backupMangaList[i] = backupManga
-            if (backupManga.favorite) processedItems += 1
+            if (backupManga.favorite) {
+                migratedCount += 1
+                incrementProcessedCount()
+            }
         }
 
+        status = Status.FINISHING
         convertedBackup = backup.copy(backupManga = backupMangaList)
         status = Status.IDLE
     }
@@ -553,8 +579,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             Triple(manga, chapters, history)
         }
 
-        // Unfavorited manga will be silently migrated
-        totalDexItems = mangaList.count { it.first.favorite && mangaDexSourceIds.contains(it.first.source) }
+        totalDexItems = mangaList.count { mangaDexSourceIds.contains(it.first.source) }
 
         status = Status.PROCESSING
 
@@ -562,11 +587,12 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val (manga, chapters, history) = mangaList[i]
             if (!mangaDexSourceIds.contains(manga.source)) continue
 
-            if (manga.favorite) currentManga = manga.title
+            currentManga = manga.title
             val oldMangaId = manga.url.split("/")[2]
             if (oldMangaId.isUUID()) {
                 // don't bother if it's already migrated
-                if (manga.favorite) alreadyMigrated += currentManga
+                alreadyMigrated += currentManga
+                incrementProcessedCount()
                 continue
             }
 
@@ -574,7 +600,8 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val newMangaId = dao.getNewMangaId(oldMangaId)
             if (newMangaId == null) {
                 // new manga id doesn't exist so does the chapters
-                if (manga.favorite) missingMangaId += currentManga
+                missingMangaId += currentManga
+                incrementProcessedCount()
                 continue
             }
             manga.url = "/manga/$newMangaId"
@@ -594,7 +621,8 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             }
             if (chapterMissing != null) {
                 // missing chapter is unlikely to happen but just in case
-                if (manga.favorite) missingChapterId += "$currentManga ($chapterMissing)"
+                missingChapterId += "$currentManga ($chapterMissing)"
+                incrementProcessedCount()
                 continue
             }
 
@@ -612,9 +640,11 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             mangaJsonObject[LegacyBackup.CHAPTERS] = parser.toJsonTree(chapters)
             mangaJsonObject[LegacyBackup.HISTORY] = parser.toJsonTree(history)
             mangaArray[i] = mangaJsonObject
-            if (manga.favorite) processedItems += 1
+            migratedCount += 1
+            incrementProcessedCount()
         }
 
+        status = Status.FINISHING
         root[LegacyBackup.MANGAS] = mangaArray
         convertedBackup = parser.toJson(root)
         status = Status.IDLE
@@ -629,6 +659,13 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             }
         }
         return null
+    }
+
+    private fun incrementProcessedCount() {
+        processedCount += 1
+        if (processedCount == totalDexItems) {
+            status = Status.FINISHING
+        }
     }
 
     private fun Uri.getDisplayName(): String? {
