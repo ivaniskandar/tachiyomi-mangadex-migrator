@@ -1,4 +1,4 @@
-package xyz.ivaniskandar.ayunda
+package xyz.ivaniskandar.ayunda.util
 
 import android.content.Context
 import android.content.Intent

@@ -1,4 +1,4 @@
-package xyz.ivaniskandar.ayunda
+package xyz.ivaniskandar.ayunda.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -9,6 +9,7 @@ import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
+import xyz.ivaniskandar.ayunda.R
 
 @Composable
 fun AyundaTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {

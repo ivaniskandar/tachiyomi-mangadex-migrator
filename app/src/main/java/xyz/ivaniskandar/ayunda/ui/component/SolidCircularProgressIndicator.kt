@@ -1,4 +1,4 @@
-package xyz.ivaniskandar.ayunda.ui
+package xyz.ivaniskandar.ayunda.ui.component
 
 import androidx.annotation.FloatRange
 import androidx.compose.foundation.Canvas

@@ -9,7 +9,7 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Ayunda">
         <activity
-            android:name=".MangaDexMigratorActivity"
+            android:name=".ui.MangaDexMigratorActivity"
             android:exported="true"
             android:theme="@style/Theme.Ayunda.NoActionBar">
             <intent-filter>
