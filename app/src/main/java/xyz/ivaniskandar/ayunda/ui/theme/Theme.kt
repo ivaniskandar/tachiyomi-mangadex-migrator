@@ -8,9 +8,7 @@ import androidx.compose.material.darkColors
 import androidx.compose.material.lightColors
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.unit.dp
-import xyz.ivaniskandar.ayunda.R
 
 @Composable
 fun AyundaTheme(darkTheme: Boolean = isSystemInDarkTheme(), content: @Composable () -> Unit) {
