@@ -319,7 +319,7 @@ private fun ExportCard(
             var listShown = false
             CompositionLocalProvider(LocalTextStyle provides MaterialTheme.typography.body2) {
                 if (alreadyMigratedTitles.isNotEmpty()) {
-                    ExpandableListColumn(title = "Already migrated") {
+                    ExpandableListColumn(title = "Already migrated (${alreadyMigratedTitles.size})") {
                         alreadyMigratedTitles.forEach {
                             Text(text = "• $it")
                         }
@@ -327,7 +327,7 @@ private fun ExportCard(
                     listShown = true
                 }
                 if (missingMangaTitles.isNotEmpty()) {
-                    ExpandableListColumn(title = "Missing new manga ID") {
+                    ExpandableListColumn(title = "Missing new manga ID (${missingMangaTitles.size})") {
                         missingMangaTitles.forEach {
                             Text(text = "• $it")
                         }
@@ -335,7 +335,7 @@ private fun ExportCard(
                     listShown = true
                 }
                 if (missingChapterTitles.isNotEmpty()) {
-                    ExpandableListColumn(title = "Missing new chapter ID") {
+                    ExpandableListColumn(title = "Missing new chapter ID (${missingChapterTitles.size})") {
                         missingChapterTitles.forEach {
                             Text(text = "• $it")
                         }
