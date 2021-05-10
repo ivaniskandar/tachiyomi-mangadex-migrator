@@ -57,6 +57,10 @@ dependencies {
 
     implementation("com.squareup.okio:okio:2.10.0")
 
+    val accompanistVersion = "0.9.1"
+    implementation("com.google.accompanist:accompanist-insets:$accompanistVersion")
+    implementation("com.google.accompanist:accompanist-systemuicontroller:$accompanistVersion")
+
     val kotlinSerializationVersion = "1.2.0"
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:$kotlinSerializationVersion")

@@ -7,7 +7,6 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts.OpenDocument
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,7 +15,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
 import androidx.compose.material.Icon
@@ -35,6 +33,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,6 +45,8 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
+import com.google.accompanist.insets.LocalWindowInsets
+import com.google.accompanist.insets.toPaddingValues
 import eu.kanade.tachiyomi.data.backup.full.models.Backup
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
 import kotlinx.coroutines.Dispatchers
@@ -60,6 +61,7 @@ import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.FINISHING
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.IDLE
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.PREPARING
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.PROCESSING
+import xyz.ivaniskandar.ayunda.ui.component.FlatCard
 import xyz.ivaniskandar.ayunda.ui.component.ButtonWithBox
 import xyz.ivaniskandar.ayunda.ui.component.ExpandableListColumn
 import xyz.ivaniskandar.ayunda.ui.component.SolidCircularProgressIndicator
@@ -76,7 +78,7 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
     val coroutineScope = rememberCoroutineScope()
     val status = viewModel.status
 
-    var progressUntilImportEnabled by remember { mutableStateOf(0F) }
+    var progressUntilImportEnabled by rememberSaveable { mutableStateOf(0F) }
     var exporting by remember { mutableStateOf(false) }
 
     if (exporting) {
@@ -84,7 +86,10 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
     }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(16.dp),
+        contentPadding = LocalWindowInsets.current.systemBars.toPaddingValues(
+            additionalHorizontal = 16.dp,
+            additionalVertical = 16.dp
+        ),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -170,17 +175,19 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
     }
 
     LaunchedEffect(true) {
-        val timer = object : CountDownTimer(TIME_TO_ENABLE_IMPORT, TICK_TO_ENABLE_IMPORT) {
-            override fun onTick(millisUntilFinished: Long) {
-                progressUntilImportEnabled = 1 - (millisUntilFinished.toFloat() / TIME_TO_ENABLE_IMPORT)
-            }
+        if (progressUntilImportEnabled != 1F) {
+            val timer = object : CountDownTimer(TIME_TO_ENABLE_IMPORT, TICK_TO_ENABLE_IMPORT) {
+                override fun onTick(millisUntilFinished: Long) {
+                    progressUntilImportEnabled = 1 - (millisUntilFinished.toFloat() / TIME_TO_ENABLE_IMPORT)
+                }
 
-            override fun onFinish() {
-                progressUntilImportEnabled = 1F
+                override fun onFinish() {
+                    progressUntilImportEnabled = 1F
+                }
             }
+            delay(1000) // Wait until everything is settled
+            timer.start()
         }
-        delay(500) // Wait until everything is settled
-        timer.start()
     }
 }
 
@@ -189,7 +196,7 @@ fun IdleCard(
     progressUntilImportEnabled: Float,
     onImportRequest: () -> Unit
 ) {
-    Card(elevation = 16.dp) {
+    FlatCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -252,7 +259,7 @@ fun WorkingCard(
     processedCount: Int = 0,
     totalCount: Int = 0
 ) {
-    Card(elevation = 16.dp) {
+    FlatCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -300,7 +307,7 @@ private fun ExportCard(
     missingChapterTitles: List<String>,
     onExportRequested: () -> Unit
 ) {
-    Card(elevation = 16.dp) {
+    FlatCard {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
