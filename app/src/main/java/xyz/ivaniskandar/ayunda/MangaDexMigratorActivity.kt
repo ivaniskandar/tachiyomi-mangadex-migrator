@@ -3,6 +3,7 @@ package xyz.ivaniskandar.ayunda
 import android.app.Application
 import android.net.Uri
 import android.os.Bundle
+import android.os.CountDownTimer
 import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -24,7 +25,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material.Button
 import androidx.compose.material.Card
 import androidx.compose.material.CircularProgressIndicator
 import androidx.compose.material.ContentAlpha
@@ -48,7 +48,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -79,6 +78,7 @@ import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.TrackImpl
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
@@ -86,12 +86,32 @@ import okio.gzip
 import okio.sink
 import okio.source
 import xyz.ivaniskandar.ayunda.db.MangaDexDatabase
+import xyz.ivaniskandar.ayunda.ui.ButtonWithBox
+import xyz.ivaniskandar.ayunda.ui.SolidCircularProgressIndicator
 import eu.kanade.tachiyomi.data.backup.full.models.Backup as FullBackup
 import eu.kanade.tachiyomi.data.backup.legacy.models.Backup as LegacyBackup
 
 class MangaDexMigratorActivity : AppCompatActivity() {
 
     private val viewModel by viewModels<MangaDexMigratorViewModel>()
+
+    private var progressUntilImportEnabled by mutableStateOf(0F)
+    private val timer = object : CountDownTimer(TIME_TO_ENABLE_IMPORT, TICK_TO_ENABLE_IMPORT) {
+        override fun onTick(millisUntilFinished: Long) {
+            progressUntilImportEnabled = 1 - (millisUntilFinished.toFloat() / TIME_TO_ENABLE_IMPORT)
+        }
+
+        override fun onFinish() {
+            progressUntilImportEnabled = 1F
+        }
+    }
+
+    init {
+        lifecycleScope.launchWhenCreated {
+            delay(1000)
+            timer.start()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -194,10 +214,17 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                             Text(text = "5. Restore the exported backup in Tachiyomi")
                                         }
                                         Spacer(modifier = Modifier.padding(top = 24.dp))
-                                        ButtonWithIcon(
+                                        ButtonWithBox(
                                             text = "IMPORT BACKUP",
-                                            icon = Icons.Default.FileUpload,
+                                            boxContent = {
+                                                Icon(
+                                                    imageVector = Icons.Default.FileUpload,
+                                                    contentDescription = null
+                                                )
+                                                SolidCircularProgressIndicator(progress = 1 - progressUntilImportEnabled)
+                                            },
                                             modifier = Modifier.fillMaxWidth(),
+                                            enabled = progressUntilImportEnabled == 1F,
                                             onClick = { selectBackup.launch(arrayOf("*/*")) }
                                         )
                                     }
@@ -311,9 +338,11 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                                         }
                                     }
 
-                                    ButtonWithIcon(
+                                    ButtonWithBox(
                                         text = "EXPORT BACKUP",
-                                        icon = Icons.Default.FileDownload,
+                                        boxContent = {
+                                            Icon(imageVector = Icons.Default.FileDownload, contentDescription = null)
+                                        },
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .padding(top = 24.dp),
@@ -375,18 +404,9 @@ class MangaDexMigratorActivity : AppCompatActivity() {
         }
     }
 
-    @Composable
-    fun ButtonWithIcon(text: String, icon: ImageVector, modifier: Modifier = Modifier, onClick: () -> Unit) {
-        val padding = PaddingValues(
-            start = 12.dp,
-            top = 8.dp,
-            end = 16.dp,
-            bottom = 8.dp
-        )
-        Button(onClick = onClick, modifier = modifier, contentPadding = padding) {
-            Icon(imageVector = icon, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
-            Text(text = text)
-        }
+    companion object {
+        private const val TIME_TO_ENABLE_IMPORT = 4000L // 5s
+        private const val TICK_TO_ENABLE_IMPORT = 1L // 1ms
     }
 }
 
