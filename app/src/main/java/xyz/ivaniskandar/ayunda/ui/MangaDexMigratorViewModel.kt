@@ -29,6 +29,7 @@ import eu.kanade.tachiyomi.data.database.models.CategoryImpl
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.TrackImpl
+import kotlinx.coroutines.delay
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
 import okio.gzip
@@ -126,7 +127,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
     )
 
     @Throws(IllegalStateException::class, IllegalArgumentException::class)
-    fun processBackup(uri: Uri?) {
+    suspend fun processBackup(uri: Uri?) {
         if (uri == null) return
 
         try {
@@ -162,8 +163,9 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    @Suppress("BlockingMethodInNonBlockingContext")
     @Throws(IllegalStateException::class)
-    private fun processProtoBackup(uri: Uri) {
+    private suspend fun processProtoBackup(uri: Uri) {
         status = Status.PREPARING
 
         val backupString = try {
@@ -186,7 +188,11 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             val backupManga = backupMangaList[i].copy()
             if (!mangaDexSourceIds.contains(backupManga.source)) continue
 
-            if (backupManga.favorite) currentManga = backupManga.title
+            if (backupManga.favorite) {
+                currentManga = backupManga.title
+                delay(PROCESS_DELAY_MS)
+            }
+
             val oldMangaId = backupManga.url.split("/")[2]
             if (oldMangaId.isUUID()) {
                 // don't bother if it's already migrated
@@ -262,10 +268,12 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
 
         status = Status.FINISHING
         convertedBackup = backup.copy(backupManga = backupMangaList)
+        delay(FINISHING_DELAY_MS)
         status = Status.IDLE
     }
 
-    private fun processJsonBackup(uri: Uri) {
+    @Suppress("BlockingMethodInNonBlockingContext")
+    private suspend fun processJsonBackup(uri: Uri) {
         status = Status.PREPARING
         val reader = JsonReader(getApplication<Application>().contentResolver.openInputStream(uri)!!.bufferedReader())
         val root = JsonParser.parseReader(reader).asJsonObject
@@ -303,6 +311,8 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             if (!mangaDexSourceIds.contains(manga.source)) continue
 
             currentManga = manga.title
+            delay(PROCESS_DELAY_MS)
+
             val oldMangaId = manga.url.split("/")[2]
             if (oldMangaId.isUUID()) {
                 // don't bother if it's already migrated
@@ -370,6 +380,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         status = Status.FINISHING
         root[LegacyBackup.MANGAS] = mangaArray
         convertedBackup = parser.toJson(root)
+        delay(FINISHING_DELAY_MS)
         status = Status.IDLE
     }
 
@@ -398,6 +409,11 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         if (processedCount == totalDexItems) {
             status = Status.FINISHING
         }
+    }
+
+    companion object {
+        private const val PROCESS_DELAY_MS = 50L
+        private const val FINISHING_DELAY_MS = 1000L
     }
 
     enum class Status {

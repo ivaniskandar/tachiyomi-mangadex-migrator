@@ -72,6 +72,8 @@ import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status as ActivitySt
 private const val TIME_TO_ENABLE_IMPORT = 4000L // 4s
 private const val TICK_TO_ENABLE_IMPORT = 1L // 1ms
 
+private const val EXPORT_DELAY_MS = 1000L
+
 @Composable
 fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
     val context = LocalContext.current
@@ -133,6 +135,7 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
                                     it.write(backup)
                                 }
                             }
+                            delay(EXPORT_DELAY_MS)
                             exporting = false
                             coroutineScope.launch(Dispatchers.Main) {
                                 Toast.makeText(context, "Done", Toast.LENGTH_SHORT).show()
