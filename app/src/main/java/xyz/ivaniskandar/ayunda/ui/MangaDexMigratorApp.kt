@@ -64,6 +64,7 @@ import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.PROCESSING
 import xyz.ivaniskandar.ayunda.ui.component.FlatCard
 import xyz.ivaniskandar.ayunda.ui.component.ButtonWithBox
 import xyz.ivaniskandar.ayunda.ui.component.ExpandableListColumn
+import xyz.ivaniskandar.ayunda.ui.component.RotatingCircularProgressIndicator
 import xyz.ivaniskandar.ayunda.ui.component.SolidCircularProgressIndicator
 import xyz.ivaniskandar.ayunda.ui.theme.AyundaTheme
 import xyz.ivaniskandar.ayunda.util.CreateDocument
@@ -170,7 +171,7 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
                 WorkingCard(
                     status = status,
                     currentlyProcessedTitle = viewModel.currentManga,
-                    processedCount = viewModel.processedCount,
+                    processedCount = if (status == PROCESSING) viewModel.processedCount else 0,
                     totalCount = viewModel.totalDexItems
                 )
             }
@@ -270,7 +271,8 @@ fun WorkingCard(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            CircularProgressIndicator()
+            val progress = processedCount.toFloat() / (totalCount).coerceAtLeast(1) // Avoiding NaN
+            RotatingCircularProgressIndicator(progress = progress)
             Spacer(modifier = Modifier.height(8.dp))
             when (status) {
                 PREPARING -> {
