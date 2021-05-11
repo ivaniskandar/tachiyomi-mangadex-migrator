@@ -31,11 +31,11 @@ class MangaDexMigratorActivity : AppCompatActivity() {
                     val useDarkIcons = MaterialTheme.colors.isLight
                     val backgroundColor = MaterialTheme.colors.background
                     SideEffect {
+                        window.setBackgroundDrawable(ColorDrawable(backgroundColor.toArgb()))
                         systemUiController.setSystemBarsColor(
                             color = Color.Transparent,
                             darkIcons = useDarkIcons
                         )
-                        window.setBackgroundDrawable(ColorDrawable(backgroundColor.toArgb()))
                     }
                 }
             }
