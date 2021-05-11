@@ -47,23 +47,17 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.google.accompanist.insets.LocalWindowInsets
 import com.google.accompanist.insets.toPaddingValues
-import eu.kanade.tachiyomi.data.backup.full.models.Backup
-import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.serialization.protobuf.ProtoBuf
-import okio.buffer
-import okio.gzip
-import okio.sink
 import xyz.ivaniskandar.ayunda.R
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.FINISHING
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.IDLE
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.PREPARING
 import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status.PROCESSING
-import xyz.ivaniskandar.ayunda.ui.component.FlatCard
 import xyz.ivaniskandar.ayunda.ui.component.ButtonWithBox
 import xyz.ivaniskandar.ayunda.ui.component.ExpandableListColumn
+import xyz.ivaniskandar.ayunda.ui.component.FlatCard
 import xyz.ivaniskandar.ayunda.ui.component.RotatingCircularProgressIndicator
 import xyz.ivaniskandar.ayunda.ui.component.SolidCircularProgressIndicator
 import xyz.ivaniskandar.ayunda.ui.theme.AyundaTheme
@@ -72,8 +66,6 @@ import xyz.ivaniskandar.ayunda.ui.MangaDexMigratorViewModel.Status as ActivitySt
 
 private const val TIME_TO_ENABLE_IMPORT = 4000L // 4s
 private const val TICK_TO_ENABLE_IMPORT = 1L // 1ms
-
-private const val EXPORT_DELAY_MS = 1000L
 
 @Composable
 fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
@@ -117,26 +109,12 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
                 }
 
                 // Show export card if converted backup is ready
-                if (viewModel.convertedBackup != null) {
+                if (viewModel.migratedBackupFile != null) {
                     val export = rememberLauncherForActivityResult(contract = CreateDocument()) { uri ->
                         if (uri == null) return@rememberLauncherForActivityResult
                         coroutineScope.launch(Dispatchers.IO) {
                             exporting = true
-                            val backup = viewModel.convertedBackup
-                            if (backup is Backup) {
-                                val byteArray = ProtoBuf.encodeToByteArray(
-                                    BackupSerializer,
-                                    backup
-                                )
-                                context.contentResolver.openOutputStream(uri)?.sink()?.gzip()?.buffer()?.use {
-                                    it.write(byteArray)
-                                }
-                            } else if (backup is String) {
-                                context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use {
-                                    it.write(backup)
-                                }
-                            }
-                            delay(EXPORT_DELAY_MS)
+                            viewModel.exportBackup(uri)
                             exporting = false
                             coroutineScope.launch(Dispatchers.Main) {
                                 Toast.makeText(context, "Done", Toast.LENGTH_SHORT).show()
@@ -151,16 +129,7 @@ fun MangaDexMigratorApp(viewModel: MangaDexMigratorViewModel) {
                         missingMangaTitles = viewModel.missingMangaId,
                         missingChapterTitles = viewModel.missingChapterId
                     ) {
-                        var fileName = viewModel.originalName
-                        if (fileName != null) {
-                            val nameSplit = fileName.split(".")
-                            if (nameSplit.size >= 2) {
-                                val nameWithoutExtension = nameSplit[0]
-                                val extension = fileName.replace(nameWithoutExtension, "")
-                                fileName = "${nameWithoutExtension}_modified$extension"
-                            }
-                        }
-                        export.launch(fileName)
+                        export.launch(viewModel.migratedBackupFile!!.name)
                     }
                 }
             }

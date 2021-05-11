@@ -18,6 +18,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonArray
 import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
+import com.google.gson.stream.JsonWriter
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
 import eu.kanade.tachiyomi.data.backup.legacy.models.DHistory
 import eu.kanade.tachiyomi.data.backup.legacy.serializer.CategoryTypeAdapter
@@ -29,10 +30,15 @@ import eu.kanade.tachiyomi.data.database.models.CategoryImpl
 import eu.kanade.tachiyomi.data.database.models.ChapterImpl
 import eu.kanade.tachiyomi.data.database.models.MangaImpl
 import eu.kanade.tachiyomi.data.database.models.TrackImpl
+import java.io.File
+import java.io.FileOutputStream
+import java.io.OutputStreamWriter
+import java.nio.charset.Charset
 import kotlinx.coroutines.delay
 import kotlinx.serialization.protobuf.ProtoBuf
 import okio.buffer
 import okio.gzip
+import okio.sink
 import okio.source
 import xyz.ivaniskandar.ayunda.db.MangaDexDatabase
 import xyz.ivaniskandar.ayunda.util.getDisplayName
@@ -66,12 +72,6 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
     private val _missingChapterId = mutableListOf<String>()
     val missingChapterId: List<String>
         get() = _missingChapterId
-
-    var convertedBackup: Any? by mutableStateOf(null)
-        private set
-
-    var originalName: String? = null
-        private set
 
     private val mangaDexDao by lazy {
         val db = Room.databaseBuilder(
@@ -126,6 +126,13 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         9194073792736219759, // vi
     )
 
+    private var originalName: String? = null
+
+    private val tempOutputDir = File(getApplication<Application>().cacheDir, "output")
+
+    var migratedBackupFile: File? by mutableStateOf(null)
+        private set
+
     @Throws(IllegalStateException::class, IllegalArgumentException::class)
     suspend fun processBackup(uri: Uri?) {
         if (uri == null) return
@@ -135,7 +142,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             if (originalName == null) throw IllegalStateException("try again plz")
 
             currentManga = ""
-            convertedBackup = null
+            migratedBackupFile = null
             processedCount = 0
             migratedCount = 0
             totalDexItems = 0
@@ -158,6 +165,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             Handler(Looper.getMainLooper()).post {
                 Toast.makeText(getApplication(), e.message, Toast.LENGTH_SHORT).show()
             }
+            migratedBackupFile = null
             status = Status.IDLE
             e.printStackTrace()
         }
@@ -168,7 +176,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun processProtoBackup(uri: Uri) {
         status = Status.PREPARING
 
-        val backupString = try {
+        var backupByteArray = try {
             getApplication<Application>().contentResolver.openInputStream(uri)?.source()?.gzip()?.buffer()?.use {
                 it.readByteArray()
             }
@@ -176,7 +184,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
             null
         } ?: throw IllegalStateException("try again plz")
 
-        val backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupString)
+        var backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupByteArray)
         val backupMangaList = backup.backupManga.toMutableList()
 
         // Unfavorited manga will be silently migrated
@@ -267,7 +275,18 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         status = Status.FINISHING
-        convertedBackup = backup.copy(backupManga = backupMangaList)
+
+        backup = backup.copy(backupManga = backupMangaList)
+        backupByteArray = ProtoBuf.encodeToByteArray(BackupSerializer, backup)
+
+        tempOutputDir.mkdirs()
+        val file = File(tempOutputDir, getModifiedOutputName(originalName!!))
+        if (file.exists()) file.delete()
+        file.outputStream().sink().gzip().buffer().use {
+            it.write(backupByteArray)
+        }
+        migratedBackupFile = file
+
         delay(FINISHING_DELAY_MS)
         status = Status.IDLE
     }
@@ -276,7 +295,11 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
     private suspend fun processJsonBackup(uri: Uri) {
         status = Status.PREPARING
         val reader = JsonReader(getApplication<Application>().contentResolver.openInputStream(uri)!!.bufferedReader())
-        val root = JsonParser.parseReader(reader).asJsonObject
+        val root = try {
+            JsonParser.parseReader(reader).asJsonObject
+        } catch (e: Exception) {
+            throw IllegalArgumentException("try again plz")
+        }
 
         val version = root.get(LegacyBackup.VERSION)?.asInt ?: 1
         if (version != LegacyBackup.CURRENT_VERSION) throw IllegalArgumentException("Unknown backup version")
@@ -378,10 +401,32 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         }
 
         status = Status.FINISHING
+
         root[LegacyBackup.MANGAS] = mangaArray
-        convertedBackup = parser.toJson(root)
+
+        tempOutputDir.mkdirs()
+        val file = File(tempOutputDir, getModifiedOutputName(originalName!!))
+        if (file.exists()) file.delete()
+        file.outputStream().use { output ->
+            JsonWriter(OutputStreamWriter(output, Charset.defaultCharset())).use { writer ->
+                parser.toJson(root, writer)
+            }
+        }
+        migratedBackupFile = file
+
         delay(FINISHING_DELAY_MS)
         status = Status.IDLE
+    }
+
+    @Suppress("BlockingMethodInNonBlockingContext")
+    suspend fun exportBackup(uri: Uri) {
+        val backupBytes = migratedBackupFile?.readBytes() ?: return
+        getApplication<Application>().contentResolver.openOutputStream(uri)?.use { output ->
+            output as FileOutputStream
+            output.channel.truncate(0) // To overwrite
+            output.write(backupBytes)
+        }
+        delay(EXPORT_DELAY_MS)
     }
 
     /**
@@ -411,9 +456,24 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    private fun getModifiedOutputName(originalName: String): String {
+        val nameSplit = originalName.split(".")
+        if (nameSplit.size >= 2) {
+            val nameWithoutExtension = nameSplit[0]
+            val extension = originalName.replace(nameWithoutExtension, "")
+            return "${nameWithoutExtension}_modified$extension"
+        }
+        return originalName
+    }
+
+    override fun onCleared() {
+        tempOutputDir.deleteRecursively()
+    }
+
     companion object {
         private const val PROCESS_DELAY_MS = 50L
         private const val FINISHING_DELAY_MS = 1000L
+        private const val EXPORT_DELAY_MS = 1000L
     }
 
     enum class Status {
