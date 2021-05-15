@@ -13,9 +13,15 @@ import kotlinx.serialization.json.long
 data class Backup(
     val version: Int = 1,
     val mangas: List<Manga>,
-    val categories: List<String>,
+    @JsonNames ("categories") private val _categories: List<JsonArray>,
     val extensions: List<String>
-)
+) {
+    val categories: Category
+        get() = Category(
+            _categories[0].jsonPrimitive.content,
+            _categories[1].jsonPrimitive.int
+        )
+}
 
 @Serializable
 data class Manga(
@@ -85,6 +91,11 @@ data class MangaTrack(
     @JsonNames("ml") val library: Long,
     @JsonNames("l") val lastRead: Int,
     @JsonNames("u") val trackingUrl: String
+)
+
+data class Category(
+    val name: String,
+    val order: Int
 )
 
 data class MangaHistory(
