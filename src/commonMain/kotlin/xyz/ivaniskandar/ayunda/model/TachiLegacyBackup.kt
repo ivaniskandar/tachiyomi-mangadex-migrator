@@ -12,15 +12,17 @@ import kotlinx.serialization.json.long
 @Serializable
 data class Backup(
     val version: Int = 1,
-    val mangas: List<Manga>,
-    @JsonNames ("categories") private val _categories: List<JsonArray>,
-    val extensions: List<String>
+    val mangas: List<Manga> = emptyList(),
+    @JsonNames ("categories") private val _categories: List<JsonArray> = emptyList(),
+    val extensions: List<String> = emptyList()
 ) {
-    val categories: Category
-        get() = Category(
-            _categories[0].jsonPrimitive.content,
-            _categories[1].jsonPrimitive.int
-        )
+    val categories: List<Category>
+        get() = _categories.map {
+            Category(
+                it[0].jsonPrimitive.content,
+                it[1].jsonPrimitive.int
+            )
+        }
 }
 
 @Serializable
