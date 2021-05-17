@@ -88,6 +88,7 @@ fun main() {
                             }
                         }
                     } catch (e: Exception) {
+                        e.printStackTrace()
                         showToast {
                             hasCloseButton(false)
                             placement { bottom }

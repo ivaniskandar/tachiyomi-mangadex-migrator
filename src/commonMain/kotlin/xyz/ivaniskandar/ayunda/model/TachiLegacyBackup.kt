@@ -88,11 +88,11 @@ data class MangaChapter(
 @Serializable
 data class MangaTrack(
     @JsonNames("t") val title: String,
-    @JsonNames("s") val sync: Int,
-    @JsonNames("r") val media: Int,
-    @JsonNames("ml") val library: Long,
-    @JsonNames("l") val lastRead: Int,
-    @JsonNames("u") val trackingUrl: String
+    @JsonNames("s") val sync: Int = 0,
+    @JsonNames("r") val media: Int = 0,
+    @JsonNames("ml") val library: Long? = null,
+    @JsonNames("l") val lastRead: Int = 0,
+    @JsonNames("u") val trackingUrl: String = ""
 )
 
 data class Category(
