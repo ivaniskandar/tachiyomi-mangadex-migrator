@@ -43,7 +43,7 @@ android {
 }
 
 dependencies {
-    implementation("androidx.core:core-ktx:1.5.0-rc02")
+    implementation("androidx.core:core-ktx:1.6.0-alpha02")
     implementation("androidx.appcompat:appcompat:1.3.0-rc01")
     implementation("androidx.compose.ui:ui:${rootProject.extra["compose_version"]}")
     implementation("androidx.compose.ui:ui-tooling:${rootProject.extra["compose_version"]}")
@@ -55,16 +55,16 @@ dependencies {
 
     implementation("tachiyomi.sourceapi:source-api:1.1")
 
-    implementation("com.squareup.okio:okio:2.10.0")
+    implementation("com.squareup.okio:okio:3.0.0")
 
     val accompanistVersion = "0.9.1"
     implementation("com.google.accompanist:accompanist-insets:$accompanistVersion")
     implementation("com.google.accompanist:accompanist-systemuicontroller:$accompanistVersion")
 
-    val kotlinSerializationVersion = "1.2.0"
+    val kotlinSerializationVersion = "1.3.1"
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:$kotlinSerializationVersion")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-protobuf:$kotlinSerializationVersion")
-    implementation("com.google.code.gson:gson:2.8.6")
+    implementation("com.google.code.gson:gson:2.8.9")
     implementation("com.github.salomonbrys.kotson:kotson:2.5.0")
 
     val roomVersion = "2.3.0"
