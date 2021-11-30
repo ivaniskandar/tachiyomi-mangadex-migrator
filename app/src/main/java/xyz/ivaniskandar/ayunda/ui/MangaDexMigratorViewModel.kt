@@ -20,6 +20,8 @@ import com.google.gson.JsonParser
 import com.google.gson.stream.JsonReader
 import com.google.gson.stream.JsonWriter
 import eu.kanade.tachiyomi.data.backup.full.models.BackupSerializer
+import eu.kanade.tachiyomi.data.backup.full.models.BackupSource
+import eu.kanade.tachiyomi.data.backup.full.models.BackupHistory
 import eu.kanade.tachiyomi.data.backup.legacy.models.DHistory
 import eu.kanade.tachiyomi.data.backup.legacy.serializer.CategoryTypeAdapter
 import eu.kanade.tachiyomi.data.backup.legacy.serializer.ChapterTypeAdapter
@@ -185,6 +187,15 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
         } ?: throw IllegalStateException("try again plz")
 
         var backup = ProtoBuf.decodeFromByteArray(BackupSerializer, backupByteArray)
+
+        // Migrate over backupBrokenSources to backupSources, if any
+        val backupSourceList = backup.backupSources.toMutableList()
+        backupSourceList.addAll(
+            backup.backupBrokenSources.map {
+                BackupSource(it.name, it.sourceId)
+            }
+        )
+
         val backupMangaList = backup.backupManga.toMutableList()
 
         // Unfavorited manga will be silently migrated
@@ -252,6 +263,10 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
 
             // Migrate history url
             val history = backupManga.history.toMutableList()
+
+            // Migrate over brokenHistory to history, if any
+            history.addAll(backupManga.brokenHistory.map{ BackupHistory(it.url, it.lastRead) })
+
             for (i2 in history.indices) {
                 val backupHistory = history[i2].copy()
                 if (backupHistory.url.startsWith("/chapter/")) {
@@ -276,7 +291,7 @@ class MangaDexMigratorViewModel(app: Application) : AndroidViewModel(app) {
 
         status = Status.FINISHING
 
-        backup = backup.copy(backupManga = backupMangaList)
+        backup = backup.copy(backupManga = backupMangaList, backupSources = backupSourceList)
         backupByteArray = ProtoBuf.encodeToByteArray(BackupSerializer, backup)
 
         tempOutputDir.mkdirs()
